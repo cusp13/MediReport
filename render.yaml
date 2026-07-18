@@ -1,0 +1,21 @@
+services:
+  - type: web
+    name: medireport-backend
+    runtime: node
+    rootDir: backend
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    plan: free
+    envVars:
+      - key: OPENAI_API_KEY
+        sync: false          # Set this manually in Render dashboard
+      - key: OPENAI_MODEL
+        value: gpt-4o-mini
+      - key: MONGODB_URI
+        sync: false          # Paste your MongoDB Atlas connection string
+      - key: JWT_SECRET
+        generateValue: true  # Render auto-generates a secure random value
+      - key: FRONTEND_ORIGIN
+        sync: false          # Set to your Vercel URL after deploying frontend
+      - key: QDRANT_URL
+        sync: false          # Optional: set to Qdrant Cloud URL for RAG features
