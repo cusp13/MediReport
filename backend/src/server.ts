@@ -12,8 +12,14 @@ import { referralRoutes } from "./routes/referrals.js";
 import { profileRoutes } from "./routes/profile.js";
 import { logRoutes } from "./routes/logs.js";
 import { dashboardRoutes } from "./routes/dashboard.js";
+import { conditionRoutes } from "./routes/conditions.js";
+import { healthLogRoutes } from "./routes/healthLogs.js";
+import { adviceRoutes } from "./routes/advice.js";
+import { dailyGoalsRoutes } from "./routes/dailyGoals.js";
 import { registerAuth } from "./auth/jwt.js";
 import { connectDb } from "./db.js";
+import { ensureCollections } from "./ai/qdrantClient.js";
+import { seedMedicalKb } from "./ai/medicalKb.js";
 
 const app = Fastify({ logger: true });
 
@@ -37,6 +43,14 @@ try {
   app.log.error({ err }, "MongoDB connection failed — accounts disabled");
 }
 
+// Initialise Qdrant vector store and seed medical knowledge base.
+try {
+  await ensureCollections();
+  await seedMedicalKb();
+} catch (err) {
+  app.log.warn({ err }, "Qdrant unavailable — recovery feature disabled (start Qdrant to enable)");
+}
+
 app.get("/health", async () => ({ status: "ok" }));
 
 await app.register(analyzeRoutes);
@@ -49,6 +63,10 @@ await app.register(referralRoutes);
 await app.register(profileRoutes);
 await app.register(logRoutes);
 await app.register(dashboardRoutes);
+await app.register(conditionRoutes);
+await app.register(healthLogRoutes);
+await app.register(adviceRoutes);
+await app.register(dailyGoalsRoutes);
 
 const port = Number(process.env.PORT ?? 4000);
 app.listen({ port, host: "0.0.0.0" }).catch((err) => {

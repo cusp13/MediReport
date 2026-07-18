@@ -96,7 +96,7 @@ export async function logRoutes(app: FastifyInstance) {
           type: "object",
           properties: {
             date: { type: "string", maxLength: 10 },
-            type: { type: "string", maxLength: 60 },
+            type: { type: "string", maxLength: 200 },
             durationMin: { type: "number" },
             steps: { type: "number" },
             done: { type: "boolean" }

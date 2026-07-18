@@ -6,9 +6,10 @@ type Props = {
   onDashboard: () => void;
   onHistory: () => void;
   onFamily: () => void;
+  onRecovery: () => void;
 };
 
-export function UserMenu({ onSignIn, onDashboard, onHistory, onFamily }: Props) {
+export function UserMenu({ onSignIn, onDashboard, onHistory, onFamily, onRecovery }: Readonly<Props>) {
   const { user, logout } = useAuth();
   const [open, setOpen] = useState(false);
 
@@ -67,6 +68,16 @@ export function UserMenu({ onSignIn, onDashboard, onHistory, onFamily }: Props) 
               className="block w-full px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-gray-50"
             >
               Report history
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setOpen(false);
+                onRecovery();
+              }}
+              className="block w-full px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-gray-50"
+            >
+              Recovery Monitor
             </button>
             <button
               type="button"

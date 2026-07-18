@@ -6,7 +6,10 @@ import type {
   HealthProfile,
   FoodLog,
   ExerciseLog,
-  DashboardData
+  DashboardData,
+  ConditionLog,
+  DailyHealthLog,
+  DailyAdvice
 } from "../types/account";
 
 const API_BASE = process.env.API_BASE_URL ?? "http://localhost:4000";
@@ -266,4 +269,136 @@ export async function getDashboard(): Promise<DashboardData> {
     headers: authHeaders(false)
   });
   return parse(res);
+}
+
+// --- Health Recovery Monitor ---
+
+export async function listConditions(): Promise<{ conditions: ConditionLog[] }> {
+  const res = await fetch(`${API_BASE}/api/conditions`, {
+    headers: authHeaders(false)
+  });
+  return parse(res);
+}
+
+export async function addCondition(input: {
+  name: string;
+  startDate?: string;
+  stage?: "acute" | "recovery" | "resolved";
+  notes?: string;
+}): Promise<{ condition: ConditionLog }> {
+  const res = await fetch(`${API_BASE}/api/conditions`, {
+    method: "POST",
+    headers: authHeaders(),
+    body: JSON.stringify(input)
+  });
+  return parse(res);
+}
+
+export async function updateCondition(
+  id: string,
+  input: { stage?: "acute" | "recovery" | "resolved"; endDate?: string; notes?: string }
+): Promise<{ condition: ConditionLog }> {
+  const res = await fetch(`${API_BASE}/api/conditions/${id}`, {
+    method: "PUT",
+    headers: authHeaders(),
+    body: JSON.stringify(input)
+  });
+  return parse(res);
+}
+
+export async function fetchConditionSchema(conditionName: string): Promise<{
+  schema: {
+    primaryMetric: { label: string; min: number; max: number; step: number; placeholder: string; isTemperature: boolean } | null;
+    secondaryField: { label: string; min: number; max: number; step: number; placeholder: string; notesPrefix: string } | null;
+    nauseaLabel: string | null;
+    symptoms: string[];
+  }
+}> {
+  const res = await fetch(
+    `${API_BASE}/api/conditions/form-schema?name=${encodeURIComponent(conditionName)}`,
+    { headers: authHeaders(false) }
+  );
+  return parse(res);
+}
+
+export async function addHealthLog(input: {
+  conditionId: string;
+  date?: string;
+  fever?: number;
+  primaryMetricLogLabel?: string;
+  energyLevel?: number;
+  nauseaLevel?: number;
+  nauseaLogLabel?: string;
+  sleepHours?: number;
+  hydrationLitres?: number;
+  symptoms?: string[];
+  medicationTaken?: boolean;
+  notes?: string;
+}): Promise<{ log: DailyHealthLog }> {
+  const res = await fetch(`${API_BASE}/api/health-logs`, {
+    method: "POST",
+    headers: authHeaders(),
+    body: JSON.stringify(input)
+  });
+  return parse(res);
+}
+
+export async function listHealthLogs(
+  conditionId: string,
+  limit = 14
+): Promise<{ logs: DailyHealthLog[] }> {
+  const res = await fetch(
+    `${API_BASE}/api/health-logs?conditionId=${encodeURIComponent(conditionId)}&limit=${limit}`,
+    { headers: authHeaders(false) }
+  );
+  return parse(res);
+}
+
+export async function getTodayAdvice(
+  conditionId: string
+): Promise<{ advice: DailyAdvice }> {
+  const res = await fetch(
+    `${API_BASE}/api/advice/today?conditionId=${encodeURIComponent(conditionId)}`,
+    { headers: authHeaders(false) }
+  );
+  return parse(res);
+}
+
+export interface DailyGoals {
+  reportBased: boolean;
+  reportDate?: string;
+  waterTargetL: number;
+  stepsTarget: number;
+  exerciseMinutes: number;
+  exerciseType: string;
+  foodsToEat: string[];
+  foodsToAvoid: string[];
+  sleepHours: number;
+  tips: string[];
+}
+
+export interface TodayStats {
+  waterLitres: number | null;
+  sleepHours: number | null;
+  mood: number | null;
+  steps: number;
+  exerciseMinutes: number;
+}
+
+export async function getDailyGoals(): Promise<{ goals: DailyGoals; today: TodayStats }> {
+  const res = await fetch(`${API_BASE}/api/daily-goals`, { headers: authHeaders(false) });
+  return parse(res);
+}
+
+export async function logDailyVitals(input: {
+  waterLitres?: number;
+  sleepHours?: number;
+  mood?: number;
+}): Promise<void> {
+  const res = await fetch(`${API_BASE}/api/daily-vitals`, {
+    method: "POST",
+    headers: authHeaders(),
+    body: JSON.stringify(input)
+  });
+  await parse(res);
 }

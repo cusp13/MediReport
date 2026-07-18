@@ -56,6 +56,52 @@ export type GuideEntry = {
   exercises: string[];
 };
 
+// --- Health Recovery Monitor ---
+
+export type ConditionLog = {
+  id: string;
+  name: string;
+  startDate: string;
+  endDate: string | null;
+  stage: "acute" | "recovery" | "resolved";
+  notes: string | null;
+};
+
+export type DailyHealthLog = {
+  id: string;
+  conditionId: string;
+  date: string;
+  dayNumber: number;
+  fever: number | null;
+  energyLevel: number | null;
+  nauseaLevel: number | null;
+  sleepHours: number | null;
+  hydrationLitres: number | null;
+  symptoms: string[];
+  medicationTaken: boolean | null;
+  notes: string | null;
+};
+
+export type DietPlan = {
+  breakfast: string;
+  lunch: string;
+  dinner: string;
+  snacks: string;
+  avoid: string[];
+};
+
+export type DailyAdvice = {
+  id: string;
+  date: string;
+  recoveryAssessment: string;
+  dietPlan: DietPlan;
+  hydrationTarget: string;
+  exerciseAdvice: string;
+  warningFlags: string[];
+  tomorrowGoal: string;
+  cached: boolean;
+};
+
 export type DashboardData = {
   profile: HealthProfile | null;
   streak: number;

@@ -17,6 +17,7 @@ import { AuthModal } from "./components/AuthModal";
 import { FamilyModal } from "./components/FamilyModal";
 import { HistoryView } from "./components/HistoryView";
 import { DashboardView } from "./components/DashboardView";
+import { RecoveryView } from "./components/RecoveryView";
 import { DisclaimerBanner } from "./components/DisclaimerBanner";
 import {
   SparkleIcon,
@@ -271,7 +272,7 @@ export function App() {
 
   const [authOpen, setAuthOpen] = useState(false);
   const [familyOpen, setFamilyOpen] = useState(false);
-  const [view, setView] = useState<"analyze" | "history" | "dashboard">(
+  const [view, setView] = useState<"analyze" | "history" | "dashboard" | "recovery">(
     "analyze"
   );
 
@@ -315,7 +316,7 @@ export function App() {
 
   // Widen for the two-column results (report + chat rail); stay narrow while
   // loading, on the landing hero, or on the dashboard/history views.
-  const isSubView = view === "dashboard" || view === "history";
+  const isSubView = view === "dashboard" || view === "history" || view === "recovery";
   const containerWidth = isSubView
     ? "max-w-2xl"
     : report
@@ -357,6 +358,7 @@ export function App() {
                 onDashboard={() => setView("dashboard")}
                 onHistory={() => setView("history")}
                 onFamily={() => setFamilyOpen(true)}
+                onRecovery={() => setView("recovery")}
               />
             </div>
           </header>
@@ -368,6 +370,8 @@ export function App() {
               onOpenReport={openSavedReport}
               onBack={() => setView("analyze")}
             />
+          ) : view === "recovery" ? (
+            <RecoveryView onBack={() => setView("analyze")} />
           ) : showLanding ? (
             <LandingHero
               onFileSelected={handleFile}

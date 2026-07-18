@@ -89,6 +89,9 @@ export async function dashboardRoutes(app: FastifyInstance) {
           }));
       }
 
+      // Merge profile conditions with flagged marker names so the guide
+      // reflects what the report found (e.g. "Hemoglobin" → anemia guide)
+      const markerHints = concerns.map((c) => c.name);
       return {
         profile,
         streak,
@@ -97,7 +100,7 @@ export async function dashboardRoutes(app: FastifyInstance) {
         totals: { minutes: totalMinutes, steps: totalSteps },
         concerns,
         reportDate,
-        guide: guideForConditions(conditions),
+        guide: guideForConditions([...conditions, ...markerHints]),
         recentFood: foodLogs.map((l) => ({
           id: l.id as string,
           date: l.date,

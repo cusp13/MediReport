@@ -1,21 +1,32 @@
 import { useEffect, useState } from "react";
 import type { DashboardData } from "../types/account";
-import { getDashboard } from "../api/client";
+import type { DailyGoals, TodayStats } from "../api/client";
+import { getDashboard, getDailyGoals } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 import { LogPanel } from "./LogPanel";
 import { ExerciseHeatmap } from "./ExerciseHeatmap";
+import { DailyGoalsCard } from "./DailyGoalsCard";
 import { LeafIcon, AlertTriangleIcon, CheckCircleIcon } from "./icons";
 
 export function DashboardView({ onBack }: { onBack: () => void }) {
   const { user } = useAuth();
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [goals, setGoals] = useState<DailyGoals | null>(null);
+  const [today, setToday] = useState<TodayStats | null>(null);
+
+  function reloadGoals() {
+    getDailyGoals()
+      .then(({ goals: g, today: t }) => { setGoals(g); setToday(t); })
+      .catch(() => undefined);
+  }
 
   function reload() {
     getDashboard()
       .then(setData)
       .catch(() => undefined)
       .finally(() => setLoading(false));
+    reloadGoals();
   }
 
   useEffect(reload, []);
@@ -130,6 +141,11 @@ export function DashboardView({ onBack }: { onBack: () => void }) {
               </div>
             )}
           </div>
+
+          {/* Daily health goals */}
+          {goals && today && (
+            <DailyGoalsCard goals={goals} today={today} onVitalsLogged={reloadGoals} />
+          )}
 
           {/* Recommended yoga / exercise */}
           <div className="rounded-2xl border border-gray-200 bg-white p-5">
