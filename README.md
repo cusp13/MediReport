@@ -1,6 +1,6 @@
 # MediReport AI
 
-> **Understand your blood test. Track your recovery. Walk into every doctor's appointment informed.**
+> **Understand your lab test report. Track your recovery. Walk into every doctor's appointment informed.**
 
 Most people get their lab report back and have no idea what they're looking at. MediReport turns confusing numbers into plain-language explanations — and for users managing active conditions, it generates a personalized AI recovery plan every single day based on their actual logged health data.
 
