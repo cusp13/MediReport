@@ -337,15 +337,16 @@ export function App() {
         className="pointer-events-none absolute -top-10 right-0 h-72 w-72 rounded-full bg-teal-200/20 blur-3xl"
       />
 
-      <div className="relative px-4 py-8">
+      <div className="relative px-4 pt-3 pb-8">
         <div
           className={`mx-auto transition-[max-width] duration-500 ${containerWidth}`}
         >
-          <header className="mb-8 flex items-center justify-between gap-2">
+          <header className="mb-3 flex items-center justify-between gap-2">
             <button
               type="button"
-              onClick={() => setView("analyze")}
-              className="text-left"
+              onClick={() => { setView("analyze"); setReport(null); setError(null); }}
+              className="rounded-lg text-left transition-opacity hover:opacity-70"
+              title="Back to home"
             >
               <BrandBar />
             </button>

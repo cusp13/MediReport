@@ -8,7 +8,30 @@ type Props = {
   compact?: boolean;
 };
 
-export function UploadDropzone({ onFileSelected, disabled, compact }: Props) {
+function wrapperClass(disabled: boolean | undefined, isActive: boolean): string {
+  if (disabled) return "bg-gray-200";
+  if (isActive) return "bg-gradient-to-r from-blue-500 to-teal-400 shadow-lg shadow-blue-100";
+  return "bg-gradient-to-r from-blue-200 via-teal-200 to-blue-200 hover:from-blue-400 hover:via-teal-400 hover:to-blue-400";
+}
+
+function innerClass(disabled: boolean | undefined, isActive: boolean): string {
+  if (disabled) return "cursor-not-allowed bg-gray-50";
+  if (isActive) return "bg-blue-50/80";
+  return "bg-white/90 backdrop-blur hover:bg-blue-50/40";
+}
+
+function iconClass(isActive: boolean): string {
+  if (isActive) return "scale-110 bg-blue-500 text-white";
+  return "bg-gradient-to-br from-blue-50 to-teal-50 text-blue-500 group-hover:from-blue-100 group-hover:to-teal-100 group-hover:scale-105";
+}
+
+function headingText(isActive: boolean, hasFile: boolean, disabled: boolean | undefined): string {
+  if (isActive) return "Release to analyze";
+  if (hasFile && !disabled) return "Report selected";
+  return "Drop your lab report here";
+}
+
+export function UploadDropzone({ onFileSelected, disabled, compact }: Readonly<Props>) {
   const [fileName, setFileName] = useState<string | null>(null);
 
   const onDrop = useCallback(
@@ -34,12 +57,12 @@ export function UploadDropzone({ onFileSelected, disabled, compact }: Props) {
   });
 
   if (compact) {
+    const compactDrag = isDragActive ? "border-blue-500 bg-blue-50" : "";
+    const compactDisabled = disabled ? "cursor-not-allowed opacity-60" : "";
     return (
       <div
         {...getRootProps()}
-        className={`group flex cursor-pointer items-center gap-3 rounded-xl border border-gray-200 bg-white px-4 py-3 transition-all hover:border-blue-400 hover:bg-blue-50/50 ${
-          isDragActive ? "border-blue-500 bg-blue-50" : ""
-        } ${disabled ? "cursor-not-allowed opacity-60" : ""}`}
+        className={`group flex cursor-pointer items-center gap-3 rounded-xl border border-gray-200 bg-white px-4 py-3 transition-all hover:border-blue-400 hover:bg-blue-50/50 ${compactDrag} ${compactDisabled}`}
       >
         <input {...getInputProps()} />
         <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gray-100 text-gray-500 transition-colors group-hover:bg-blue-100 group-hover:text-blue-600">
@@ -52,43 +75,44 @@ export function UploadDropzone({ onFileSelected, disabled, compact }: Props) {
     );
   }
 
+  const isActive = isDragActive && !disabled;
+  const hasFile = !!fileName;
+  const showFileName = hasFile && !disabled;
+
   return (
-    <div
-      {...getRootProps()}
-      className={`group relative overflow-hidden rounded-3xl border-2 border-dashed p-12 text-center transition-all ${
-        disabled
-          ? "cursor-not-allowed border-gray-200 bg-gray-50"
-          : "cursor-pointer border-blue-200 bg-white/80 backdrop-blur hover:border-blue-400 hover:bg-blue-50/60"
-      } ${isDragActive ? "border-blue-500 bg-blue-50 scale-[1.01] shadow-lg shadow-blue-100" : "shadow-sm"}`}
-    >
-      <input {...getInputProps()} />
-      <div className="flex flex-col items-center gap-4">
-        <div
-          className={`flex h-16 w-16 items-center justify-center rounded-2xl transition-all ${
-            isDragActive
-              ? "bg-blue-500 text-white scale-110"
-              : "bg-blue-50 text-blue-500 group-hover:scale-105 group-hover:bg-blue-100"
-          }`}
-        >
-          <UploadIcon className="h-7 w-7" />
+    <div className={`rounded-2xl p-px transition-all duration-300 ${wrapperClass(disabled, isActive)}`}>
+      <div
+        {...getRootProps()}
+        className={`group relative flex cursor-pointer items-center gap-5 rounded-2xl px-6 py-5 transition-all duration-300 ${innerClass(disabled, isActive)}`}
+      >
+        <input {...getInputProps()} />
+
+        <div className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-xl transition-all duration-300 ${iconClass(isActive)}`}>
+          <UploadIcon className="h-6 w-6" />
         </div>
-        <div>
-          <p className="text-lg font-semibold text-gray-900">
-            {isDragActive ? "Drop it here" : "Drop your lab report to begin"}
+
+        <div className="flex-1 text-left">
+          <p className="font-semibold text-gray-900">
+            {headingText(isActive, hasFile, disabled)}
           </p>
-          <p className="mt-1 text-sm text-gray-500">
-            or <span className="font-medium text-blue-600">click to browse</span>
+          <p className="mt-0.5 text-sm text-gray-500">
+            {showFileName
+              ? <span className="font-medium text-blue-600">{fileName}</span>
+              : <><span className="font-medium text-blue-600">Click to browse</span> · PDF, JPG or PNG</>
+            }
           </p>
         </div>
-        {fileName && !disabled ? (
-          <p className="rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-600">
-            {fileName}
-          </p>
-        ) : (
-          <div className="flex items-center gap-1.5 text-xs text-gray-400">
-            <span className="rounded-md bg-gray-100 px-2 py-0.5 font-medium">PDF</span>
-            <span className="rounded-md bg-gray-100 px-2 py-0.5 font-medium">JPG</span>
-            <span className="rounded-md bg-gray-100 px-2 py-0.5 font-medium">PNG</span>
+
+        {!hasFile && (
+          <div className="hidden shrink-0 flex-col items-end gap-1.5 sm:flex">
+            {["PDF", "JPG", "PNG"].map(fmt => (
+              <span
+                key={fmt}
+                className="rounded-md bg-gray-100 px-2 py-0.5 text-xs font-semibold text-gray-400 transition-colors group-hover:bg-blue-50 group-hover:text-blue-400"
+              >
+                {fmt}
+              </span>
+            ))}
           </div>
         )}
       </div>
