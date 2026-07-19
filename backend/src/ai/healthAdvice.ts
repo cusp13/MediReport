@@ -10,7 +10,8 @@ import { fileURLToPath } from "url";
 import { dirname, join } from "path";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const MCP_SERVER_PATH = join(__dirname, "../mcp/server.ts");
+const IS_TS = import.meta.url.endsWith(".ts");
+const MCP_SERVER_PATH = join(__dirname, IS_TS ? "../mcp/server.ts" : "../mcp/server.js");
 
 export interface DailyAdvicePayload {
   recoveryAssessment: string;
@@ -121,6 +122,53 @@ async function parseAdviceFromContent(content: string, messages: ChatCompletionM
   }
 }
 
+function extractToolResultText(content: unknown): string {
+  const firstBlock = Array.isArray(content) ? content[0] : null;
+  if (firstBlock && typeof firstBlock === "object" && "text" in firstBlock) {
+    return String((firstBlock as { text: unknown }).text);
+  }
+  return JSON.stringify(content);
+}
+
+async function executeToolCalls(
+  mcpClient: Client,
+  toolCalls: NonNullable<ChatCompletionMessageParam & { role: "assistant" }> extends { tool_calls?: infer T } ? NonNullable<T> : never,
+  messages: ChatCompletionMessageParam[],
+  userId: string,
+  conditionId: string
+): Promise<void> {
+  for (const toolCall of toolCalls as Array<{ id: string; function: { name: string; arguments: string } }>) {
+    const toolArgs = JSON.parse(toolCall.function.arguments) as Record<string, unknown>;
+    if (toolCall.function.name === "get_recovery_trend") {
+      toolArgs.userId ??= userId;
+      toolArgs.conditionId ??= conditionId;
+    }
+    const toolResult = await mcpClient.callTool({ name: toolCall.function.name, arguments: toolArgs });
+    messages.push({ role: "tool", tool_call_id: toolCall.id, content: extractToolResultText(toolResult.content) });
+  }
+}
+
+async function runToolLoop(
+  mcpClient: Client,
+  openAiTools: ChatCompletionTool[],
+  messages: ChatCompletionMessageParam[],
+  userId: string,
+  conditionId: string
+): Promise<DailyAdvicePayload> {
+  for (let round = 0; round < 5; round++) {
+    const response = await getClient().chat.completions.create({ model: MODEL, temperature: 0.3, messages, tools: openAiTools });
+    const choice = response.choices[0];
+    if (!choice) throw new Error("Empty response from model");
+    const { message } = choice;
+    if (!message.tool_calls || message.tool_calls.length === 0) {
+      return parseAdviceFromContent(message.content ?? "", messages);
+    }
+    messages.push({ role: "assistant", content: message.content ?? null, tool_calls: message.tool_calls });
+    await executeToolCalls(mcpClient, message.tool_calls as never, messages, userId, conditionId);
+  }
+  throw new Error("Max tool call rounds exceeded without final answer");
+}
+
 export async function generateAdvice(opts: {
   userId: string;
   conditionId: string;
@@ -132,8 +180,8 @@ export async function generateAdvice(opts: {
   ragCtx: RagContext;
 }): Promise<DailyAdvicePayload> {
   const transport = new StdioClientTransport({
-    command: "npx",
-    args: ["tsx", MCP_SERVER_PATH],
+    command: IS_TS ? "npx" : "node",
+    args: IS_TS ? ["tsx", MCP_SERVER_PATH] : [MCP_SERVER_PATH],
     env: { ...process.env } as Record<string, string>,
     stderr: "pipe"
   });
@@ -144,83 +192,15 @@ export async function generateAdvice(opts: {
   try {
     const { tools: mcpTools } = await mcpClient.listTools();
     const openAiTools: ChatCompletionTool[] = mcpTools.map((t) =>
-      mcpToolToOpenAi({
-        name: t.name,
-        description: t.description,
-        inputSchema: t.inputSchema as Record<string, unknown>
-      })
-    );
-
-    const systemPrompt = buildSystemPrompt(
-      opts.conditionName,
-      opts.stage,
-      opts.dayNumber,
-      opts.userProfile,
-      formatContextForPrompt(opts.ragCtx)
+      mcpToolToOpenAi({ name: t.name, description: t.description, inputSchema: t.inputSchema as Record<string, unknown> })
     );
 
     const messages: ChatCompletionMessageParam[] = [
-      { role: "system", content: systemPrompt },
-      {
-        role: "user",
-        content: `Today's log: ${opts.todayLogText}\n\nUse tools as needed, then return your advice as JSON matching the required schema.`
-      }
+      { role: "system", content: buildSystemPrompt(opts.conditionName, opts.stage, opts.dayNumber, opts.userProfile, formatContextForPrompt(opts.ragCtx)) },
+      { role: "user", content: `Today's log: ${opts.todayLogText}\n\nUse tools as needed, then return your advice as JSON matching the required schema.` }
     ];
 
-    for (let round = 0; round < 5; round++) {
-      const response = await getClient().chat.completions.create({
-        model: MODEL,
-        temperature: 0.3,
-        messages,
-        tools: openAiTools
-      });
-
-      const choice = response.choices[0];
-      if (!choice) throw new Error("Empty response from model");
-
-      const { message } = choice;
-
-      if (!message.tool_calls || message.tool_calls.length === 0) {
-        return parseAdviceFromContent(message.content ?? "", messages);
-      }
-
-      // Append assistant turn (with tool_calls) to history
-      messages.push({
-        role: "assistant",
-        content: message.content ?? null,
-        tool_calls: message.tool_calls
-      });
-
-      // Execute each tool call via MCP and append results
-      for (const toolCall of message.tool_calls) {
-        const toolArgs = JSON.parse(toolCall.function.arguments) as Record<string, unknown>;
-
-        // Auto-inject ids for recovery trend tool
-        if (toolCall.function.name === "get_recovery_trend") {
-          toolArgs.userId ??= opts.userId;
-          toolArgs.conditionId ??= opts.conditionId;
-        }
-
-        const toolResult = await mcpClient.callTool({
-          name: toolCall.function.name,
-          arguments: toolArgs
-        });
-
-        const firstBlock = Array.isArray(toolResult.content) ? toolResult.content[0] : null;
-        const resultText =
-          firstBlock && typeof firstBlock === "object" && "text" in firstBlock
-            ? String(firstBlock.text)
-            : JSON.stringify(toolResult.content);
-
-        messages.push({
-          role: "tool",
-          tool_call_id: toolCall.id,
-          content: resultText
-        });
-      }
-    }
-
-    throw new Error("Max tool call rounds exceeded without final answer");
+    return await runToolLoop(mcpClient, openAiTools, messages, opts.userId, opts.conditionId);
   } finally {
     await mcpClient.close();
   }
