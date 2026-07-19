@@ -3,7 +3,6 @@ import type { DashboardData } from "../types/account";
 import type { DailyGoals, TodayStats } from "../api/client";
 import { getDashboard, getDailyGoals } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
-import { LogPanel } from "./LogPanel";
 import { ExerciseHeatmap } from "./ExerciseHeatmap";
 import { DailyGoalsCard } from "./DailyGoalsCard";
 import { LeafIcon, AlertTriangleIcon, CheckCircleIcon } from "./icons";
@@ -210,8 +209,6 @@ export function DashboardView({ onBack }: { onBack: () => void }) {
             </div>
           )}
 
-          {/* Quick logging */}
-          <LogPanel onLogged={reload} />
         </>
       )}
     </div>

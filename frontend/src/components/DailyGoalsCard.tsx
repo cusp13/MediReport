@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react";
-import { logDailyVitals, addExerciseLog } from "../api/client";
+import { useState } from "react";
+import { logDailyVitals, addFoodLog, addExerciseLog } from "../api/client";
 import type { DailyGoals, TodayStats } from "../api/client";
 
 function ProgressBar({ value, target, color = "bg-blue-500" }: { value: number; target: number; color?: string }) {
@@ -51,42 +51,33 @@ export function DailyGoalsCard({
   const [water, setWater] = useState(today.waterLitres != null ? String(today.waterLitres) : "");
   const [sleep, setSleep] = useState(today.sleepHours != null ? String(today.sleepHours) : "");
   const [mood, setMood] = useState<number>(today.mood ?? 0);
+  const [food, setFood] = useState("");
   const [exMin, setExMin] = useState("");
-  // Optimistic local total — syncs with prop on parent refresh
-  const [exTotal, setExTotal] = useState(today.exerciseMinutes);
+  const [exType, setExType] = useState("");
+  const [exSteps, setExSteps] = useState("");
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
-
-  // Keep exTotal in sync when parent re-fetches daily goals
-  useEffect(() => { setExTotal(today.exerciseMinutes); }, [today.exerciseMinutes]);
 
   async function handleLog(e: React.FormEvent) {
     e.preventDefault();
     setSaving(true);
-
-    // Save vitals (water / sleep / mood) — non-fatal
-    if (water || sleep || mood > 0) {
-      try {
-        await logDailyVitals({
-          waterLitres: water ? Number(water) : undefined,
-          sleepHours: sleep ? Number(sleep) : undefined,
-          mood: mood > 0 ? mood : undefined
-        });
-      } catch { /* best-effort */ }
-    }
-
-    // Save exercise minutes — optimistically update bar immediately
-    if (exMin) {
-      const mins = Number(exMin);
-      // Truncate to 60 chars to satisfy the route schema
-      const exType = goals.exerciseType.slice(0, 60);
-      setExTotal((prev) => prev + mins);
-      setExMin("");
-      try {
-        await addExerciseLog({ type: exType, durationMin: mins });
-      } catch { /* best-effort */ }
-    }
-
+    await Promise.allSettled([
+      (water || sleep || mood > 0) && logDailyVitals({
+        waterLitres: water ? Number(water) : undefined,
+        sleepHours: sleep ? Number(sleep) : undefined,
+        mood: mood > 0 ? mood : undefined,
+      }),
+      food.trim() && addFoodLog({ items: food.split(",").map(s => s.trim()).filter(Boolean) }),
+      (exMin || exSteps) && addExerciseLog({
+        type: exType.trim() || "General",
+        durationMin: exMin ? Number(exMin) : undefined,
+        steps: exSteps ? Number(exSteps) : undefined,
+      }),
+    ]);
+    setFood("");
+    setExMin("");
+    setExType("");
+    setExSteps("");
     setSaving(false);
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
@@ -95,6 +86,8 @@ export function DailyGoalsCard({
 
   const waterLogged = today.waterLitres ?? (water ? Number(water) : 0);
   const sleepLogged = today.sleepHours ?? (sleep ? Number(sleep) : 0);
+
+  const btnLabel = saving ? "Saving…" : "Save today's log";
 
   const inputClass = "w-full rounded-xl border border-gray-200 px-3 py-2 text-sm outline-none focus:border-blue-400";
 
@@ -128,7 +121,7 @@ export function DailyGoalsCard({
         />
         <GoalRow
           icon="🏃" label="Exercise" color="bg-green-500"
-          current={exTotal} target={goals.exerciseMinutes} unit=" min"
+          current={today.exerciseMinutes} target={goals.exerciseMinutes} unit=" min"
         />
         <GoalRow
           icon="😴" label="Sleep" color="bg-indigo-400"
@@ -167,11 +160,71 @@ export function DailyGoalsCard({
 
       {/* Quick log */}
       <form onSubmit={handleLog} className="border-t border-gray-100 pt-4 space-y-3">
-        <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">Log today's vitals</p>
-        <div className="grid grid-cols-3 gap-3">
+        <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">Log today</p>
+
+        {/* Food */}
+        <div>
+          <label htmlFor="food-log" className="mb-1 block text-xs font-medium text-gray-600">
+            🍽️ Food eaten
+          </label>
+          <input
+            id="food-log"
+            value={food}
+            onChange={(e) => setFood(e.target.value)}
+            placeholder="e.g. 2 roti, dal, salad"
+            className={inputClass}
+          />
+        </div>
+
+        {/* Exercise */}
+        <div className="grid grid-cols-3 gap-2">
+          <div>
+            <label htmlFor="ex-min" className="mb-1 block text-xs font-medium text-gray-600">
+              🏃 Exercise (min)
+            </label>
+            <input
+              id="ex-min"
+              type="number"
+              min="0"
+              value={exMin}
+              onChange={(e) => setExMin(e.target.value)}
+              placeholder={`target ${goals.exerciseMinutes}`}
+              className={inputClass}
+            />
+          </div>
+          <div>
+            <label htmlFor="ex-type" className="mb-1 block text-xs font-medium text-gray-600">
+              Activity
+            </label>
+            <input
+              id="ex-type"
+              value={exType}
+              onChange={(e) => setExType(e.target.value)}
+              placeholder="e.g. Walking"
+              className={inputClass}
+            />
+          </div>
+          <div>
+            <label htmlFor="ex-steps" className="mb-1 block text-xs font-medium text-gray-600">
+              Steps
+            </label>
+            <input
+              id="ex-steps"
+              type="number"
+              min="0"
+              value={exSteps}
+              onChange={(e) => setExSteps(e.target.value)}
+              placeholder="e.g. 5000"
+              className={inputClass}
+            />
+          </div>
+        </div>
+
+        {/* Water + Sleep */}
+        <div className="grid grid-cols-2 gap-3">
           <div>
             <label htmlFor="water-log" className="mb-1 block text-xs font-medium text-gray-600">
-              Water (litres)
+              💧 Water (litres)
             </label>
             <input
               id="water-log"
@@ -187,7 +240,7 @@ export function DailyGoalsCard({
           </div>
           <div>
             <label htmlFor="sleep-log" className="mb-1 block text-xs font-medium text-gray-600">
-              Sleep (hours)
+              😴 Sleep (hours)
             </label>
             <input
               id="sleep-log"
@@ -198,22 +251,6 @@ export function DailyGoalsCard({
               value={sleep}
               onChange={(e) => setSleep(e.target.value)}
               placeholder={`target ${goals.sleepHours}h`}
-              className={inputClass}
-            />
-          </div>
-          <div>
-            <label htmlFor="exercise-log" className="mb-1 block text-xs font-medium text-gray-600">
-              Exercise (min)
-            </label>
-            <input
-              id="exercise-log"
-              type="number"
-              step="1"
-              min="0"
-              max="300"
-              value={exMin}
-              onChange={(e) => setExMin(e.target.value)}
-              placeholder={`target ${goals.exerciseMinutes}`}
               className={inputClass}
             />
           </div>
@@ -243,10 +280,10 @@ export function DailyGoalsCard({
 
         <button
           type="submit"
-          disabled={saving || (!water && !sleep && !exMin && mood === 0)}
+          disabled={saving || (!water && !sleep && !food.trim() && !exMin && !exSteps && mood === 0)}
           className="w-full rounded-xl bg-blue-600 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-40"
         >
-          {saved ? "✓ Saved" : saving ? "Saving…" : "Save today's vitals"}
+          {saved ? "✓ Saved" : btnLabel}
         </button>
       </form>
     </div>
