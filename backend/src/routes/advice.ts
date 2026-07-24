@@ -3,6 +3,7 @@ import { ConditionLog } from "../models/ConditionLog.js";
 import { DailyHealthLog } from "../models/DailyHealthLog.js";
 import { DailyAdvice } from "../models/DailyAdvice.js";
 import { User } from "../models/User.js";
+import { FamilyMember } from "../models/FamilyMember.js";
 import { dbReady } from "../db.js";
 import { buildRagContext } from "../ai/ragContext.js";
 import { generateAdvice } from "../ai/healthAdvice.js";
@@ -30,6 +31,23 @@ function buildUserProfileText(user: {
   if (p.conditions?.length) parts.push(`Pre-existing conditions: ${p.conditions.join(", ")}`);
   if (p.dietPreference) parts.push(`Diet preference: ${p.dietPreference}`);
   if (p.activityLevel) parts.push(`Activity level: ${p.activityLevel}`);
+  return parts.join(". ");
+}
+
+function buildFamilyProfileText(member: {
+  name: string;
+  relation?: string | null;
+  age?: string | null;
+  preExistingConditions?: string | null;
+  currentMedications?: string | null;
+  medicalNotes?: string | null;
+}): string {
+  const parts = [`Name: ${member.name}`];
+  if (member.relation) parts.push(`Relation to account holder: ${member.relation}`);
+  if (member.age) parts.push(`Age: ${member.age}`);
+  if (member.preExistingConditions) parts.push(`Pre-existing conditions: ${member.preExistingConditions}`);
+  if (member.currentMedications) parts.push(`Current medications: ${member.currentMedications}`);
+  if (member.medicalNotes) parts.push(`Additional notes: ${member.medicalNotes}`);
   return parts.join(". ");
 }
 
@@ -82,6 +100,14 @@ export async function adviceRoutes(app: FastifyInstance) {
       const user = await User.findById(userId);
       if (!user) return reply.code(401).send({ error: "User not found." });
 
+      // When this condition belongs to a family member, personalise using their
+      // own medical profile instead of the account owner's.
+      let profileText = buildUserProfileText(user);
+      if (condition.memberId) {
+        const member = await FamilyMember.findOne({ _id: condition.memberId, userId });
+        if (member) profileText = buildFamilyProfileText(member);
+      }
+
       // Build RAG context
       const ragCtx = await buildRagContext(userId, conditionId, condition.name, todayLog.logText);
 
@@ -93,7 +119,7 @@ export async function adviceRoutes(app: FastifyInstance) {
         stage: condition.stage,
         dayNumber: todayLog.dayNumber,
         todayLogText: todayLog.logText,
-        userProfile: buildUserProfileText(user),
+        userProfile: profileText,
         ragCtx
       });
 

@@ -6,7 +6,10 @@ function serialize(m: InstanceType<typeof FamilyMember>) {
     id: m.id as string,
     name: m.name,
     relation: m.relation ?? null,
-    age: m.age ?? null
+    age: m.age ?? null,
+    preExistingConditions: m.preExistingConditions ?? null,
+    currentMedications: m.currentMedications ?? null,
+    medicalNotes: m.medicalNotes ?? null
   };
 }
 
@@ -32,7 +35,10 @@ export async function familyRoutes(app: FastifyInstance) {
           properties: {
             name: { type: "string", minLength: 1, maxLength: 80 },
             relation: { type: "string", maxLength: 40 },
-            age: { type: "string", maxLength: 10 }
+            age: { type: "string", maxLength: 10 },
+            preExistingConditions: { type: "string", maxLength: 300 },
+            currentMedications: { type: "string", maxLength: 300 },
+            medicalNotes: { type: "string", maxLength: 300 }
           },
           required: ["name"],
           additionalProperties: false
@@ -44,11 +50,53 @@ export async function familyRoutes(app: FastifyInstance) {
         name: string;
         relation?: string;
         age?: string;
+        preExistingConditions?: string;
+        currentMedications?: string;
+        medicalNotes?: string;
       };
       const member = await FamilyMember.create({
         userId: request.user.userId,
         ...body
       });
+      return { member: serialize(member) };
+    }
+  );
+
+  app.put(
+    "/api/family/:id",
+    {
+      preHandler: [app.authenticate],
+      schema: {
+        body: {
+          type: "object",
+          properties: {
+            name: { type: "string", minLength: 1, maxLength: 80 },
+            relation: { type: "string", maxLength: 40 },
+            age: { type: "string", maxLength: 10 },
+            preExistingConditions: { type: "string", maxLength: 300 },
+            currentMedications: { type: "string", maxLength: 300 },
+            medicalNotes: { type: "string", maxLength: 300 }
+          },
+          additionalProperties: false
+        }
+      }
+    },
+    async (request, reply) => {
+      const { id } = request.params as { id: string };
+      const body = request.body as {
+        name?: string;
+        relation?: string;
+        age?: string;
+        preExistingConditions?: string;
+        currentMedications?: string;
+        medicalNotes?: string;
+      };
+      const member = await FamilyMember.findOneAndUpdate(
+        { _id: id, userId: request.user.userId },
+        { $set: body },
+        { new: true }
+      );
+      if (!member) return reply.code(404).send({ error: "Not found." });
       return { member: serialize(member) };
     }
   );

@@ -42,10 +42,12 @@ const MOOD_LABELS = ["", "Awful", "Poor", "Okay", "Good", "Great"];
 export function DailyGoalsCard({
   goals,
   today,
+  memberId,
   onVitalsLogged
 }: Readonly<{
   goals: DailyGoals;
   today: TodayStats;
+  memberId?: string | null;
   onVitalsLogged: () => void;
 }>) {
   const [water, setWater] = useState(today.waterLitres != null ? String(today.waterLitres) : "");
@@ -66,12 +68,17 @@ export function DailyGoalsCard({
         waterLitres: water ? Number(water) : undefined,
         sleepHours: sleep ? Number(sleep) : undefined,
         mood: mood > 0 ? mood : undefined,
+        memberId,
       }),
-      food.trim() && addFoodLog({ items: food.split(",").map(s => s.trim()).filter(Boolean) }),
+      food.trim() && addFoodLog({
+        items: food.split(",").map(s => s.trim()).filter(Boolean),
+        memberId,
+      }),
       (exMin || exSteps) && addExerciseLog({
         type: exType.trim() || "General",
         durationMin: exMin ? Number(exMin) : undefined,
         steps: exSteps ? Number(exSteps) : undefined,
+        memberId,
       }),
     ]);
     setFood("");

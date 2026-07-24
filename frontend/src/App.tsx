@@ -123,7 +123,7 @@ function Results({
 
   return (
     <>
-      <div className="animate-fade-in-up mb-4 flex flex-wrap items-center justify-between gap-2">
+      <div className="animate-fade-in-up relative z-20 mb-4 flex flex-wrap items-center justify-between gap-2">
         <div className="flex flex-wrap items-center gap-2">
           <SaveReportButton
             report={report}
@@ -272,6 +272,7 @@ export function App() {
 
   const [authOpen, setAuthOpen] = useState(false);
   const [familyOpen, setFamilyOpen] = useState(false);
+  const [familyVersion, setFamilyVersion] = useState(0);
   const [view, setView] = useState<"analyze" | "history" | "dashboard" | "recovery">(
     "analyze"
   );
@@ -365,14 +366,20 @@ export function App() {
           </header>
 
           {view === "dashboard" ? (
-            <DashboardView onBack={() => setView("analyze")} />
+            <DashboardView
+              onBack={() => setView("analyze")}
+              familyVersion={familyVersion}
+            />
           ) : view === "history" ? (
             <HistoryView
               onOpenReport={openSavedReport}
               onBack={() => setView("analyze")}
             />
           ) : view === "recovery" ? (
-            <RecoveryView onBack={() => setView("analyze")} />
+            <RecoveryView
+              onBack={() => setView("analyze")}
+              familyVersion={familyVersion}
+            />
           ) : showLanding ? (
             <LandingHero
               onFileSelected={handleFile}
@@ -410,7 +417,14 @@ export function App() {
       </div>
 
       {authOpen && <AuthModal onClose={() => setAuthOpen(false)} />}
-      {familyOpen && <FamilyModal onClose={() => setFamilyOpen(false)} />}
+      {familyOpen && (
+        <FamilyModal
+          onClose={() => {
+            setFamilyOpen(false);
+            setFamilyVersion((v) => v + 1);
+          }}
+        />
+      )}
     </div>
   );
 }

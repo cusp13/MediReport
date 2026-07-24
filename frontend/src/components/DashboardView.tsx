@@ -1,34 +1,55 @@
 import { useEffect, useState } from "react";
-import type { DashboardData } from "../types/account";
+import type { DashboardData, FamilyMember } from "../types/account";
 import type { DailyGoals, TodayStats } from "../api/client";
-import { getDashboard, getDailyGoals } from "../api/client";
+import { getDashboard, getDailyGoals, listFamily } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 import { ExerciseHeatmap } from "./ExerciseHeatmap";
 import { DailyGoalsCard } from "./DailyGoalsCard";
 import { LeafIcon, AlertTriangleIcon, CheckCircleIcon } from "./icons";
 
-export function DashboardView({ onBack }: { onBack: () => void }) {
+export function DashboardView({
+  onBack,
+  familyVersion
+}: Readonly<{
+  onBack: () => void;
+  familyVersion?: number;
+}>) {
   const { user } = useAuth();
+  const [members, setMembers] = useState<FamilyMember[]>([]);
+  const [activeMemberId, setActiveMemberId] = useState<string | null>(null);
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [goals, setGoals] = useState<DailyGoals | null>(null);
   const [today, setToday] = useState<TodayStats | null>(null);
 
+  const activeMember = members.find((m) => m.id === activeMemberId) ?? null;
+
+  useEffect(() => {
+    listFamily()
+      .then(({ members: list }) => setMembers(list))
+      .catch(() => undefined);
+  }, [familyVersion]);
+
   function reloadGoals() {
-    getDailyGoals()
+    getDailyGoals(activeMemberId)
       .then(({ goals: g, today: t }) => { setGoals(g); setToday(t); })
       .catch(() => undefined);
   }
 
   function reload() {
-    getDashboard()
+    setLoading(true);
+    getDashboard(activeMemberId)
       .then(setData)
       .catch(() => undefined)
       .finally(() => setLoading(false));
     reloadGoals();
   }
 
-  useEffect(reload, []);
+  useEffect(reload, [activeMemberId]);
+
+  const selfGreeting = user ? `Hi, ${user.name.split(" ")[0]} 👋` : "Hi 👋";
+  const heading = activeMember ? `${activeMember.name}'s Dashboard` : selfGreeting;
+  const subheading = activeMember ? "Their health at a glance" : "Your health at a glance";
 
   return (
     <div className="space-y-5">
@@ -41,10 +62,28 @@ export function DashboardView({ onBack }: { onBack: () => void }) {
       </button>
 
       <div>
-        <h1 className="text-2xl font-bold tracking-tight text-gray-900">
-          Hi{user ? `, ${user.name.split(" ")[0]}` : ""} 👋
-        </h1>
-        <p className="text-sm text-gray-500">Your health at a glance</p>
+        <h1 className="text-2xl font-bold tracking-tight text-gray-900">{heading}</h1>
+        <p className="text-sm text-gray-500">{subheading}</p>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2">
+        <label htmlFor="dashboard-member-select" className="text-xs font-medium text-gray-500">
+          Viewing
+        </label>
+        <select
+          id="dashboard-member-select"
+          value={activeMemberId ?? "self"}
+          onChange={(e) => setActiveMemberId(e.target.value === "self" ? null : e.target.value)}
+          className="rounded-xl border border-gray-200 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 outline-none focus:border-blue-400"
+        >
+          <option value="self">Myself</option>
+          {members.map((m) => (
+            <option key={m.id} value={m.id}>
+              {m.name}
+              {m.relation ? ` · ${m.relation}` : ""}
+            </option>
+          ))}
+        </select>
       </div>
 
       {loading ? (
@@ -143,7 +182,12 @@ export function DashboardView({ onBack }: { onBack: () => void }) {
 
           {/* Daily health goals */}
           {goals && today && (
-            <DailyGoalsCard goals={goals} today={today} onVitalsLogged={reloadGoals} />
+            <DailyGoalsCard
+              goals={goals}
+              today={today}
+              memberId={activeMemberId}
+              onVitalsLogged={reloadGoals}
+            />
           )}
 
           {/* Recommended yoga / exercise */}

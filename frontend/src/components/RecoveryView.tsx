@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
-import { listConditions, listHealthLogs, getTodayAdvice, updateCondition } from "../api/client";
-import type { ConditionLog, DailyHealthLog, DailyAdvice } from "../types/account";
+import { listConditions, listHealthLogs, getTodayAdvice, updateCondition, listFamily } from "../api/client";
+import type { ConditionLog, DailyHealthLog, DailyAdvice, FamilyMember } from "../types/account";
 import { ConditionSetup } from "./ConditionSetup";
 import { DailyCheckIn } from "./DailyCheckIn";
 import { AdviceCard } from "./AdviceCard";
@@ -22,7 +22,15 @@ function today(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
-export function RecoveryView({ onBack }: { onBack: () => void }) {
+export function RecoveryView({
+  onBack,
+  familyVersion
+}: Readonly<{
+  onBack: () => void;
+  familyVersion?: number;
+}>) {
+  const [members, setMembers] = useState<FamilyMember[]>([]);
+  const [activeMemberId, setActiveMemberId] = useState<string | null>(null);
   const [conditions, setConditions] = useState<ConditionLog[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [logs, setLogs] = useState<DailyHealthLog[]>([]);
@@ -33,16 +41,27 @@ export function RecoveryView({ onBack }: { onBack: () => void }) {
   const activeCondition = conditions.find((c) => c.id === activeId) ?? null;
   const todayLogged = logs.some((l) => l.date === today());
 
-  // Load conditions on mount
+  // Load family members for the "tracking for" selector; refetch whenever the
+  // family modal closes so newly added members show up without a remount.
   useEffect(() => {
-    listConditions()
+    listFamily()
+      .then(({ members: list }) => setMembers(list))
+      .catch(() => undefined);
+  }, [familyVersion]);
+
+  // Load conditions for whichever person is selected (self by default)
+  useEffect(() => {
+    setLoadingInit(true);
+    setConditions([]);
+    setActiveId(null);
+    listConditions(activeMemberId)
       .then(({ conditions: list }) => {
         setConditions(list);
         if (list.length > 0) setActiveId(list[0].id);
       })
       .catch(() => undefined)
       .finally(() => setLoadingInit(false));
-  }, []);
+  }, [activeMemberId]);
 
   // Load logs + cached advice when active condition changes
   useEffect(() => {
@@ -113,9 +132,37 @@ export function RecoveryView({ onBack }: { onBack: () => void }) {
         </p>
       </div>
 
+      {/* Who this recovery monitor is for */}
+      <div className="flex flex-wrap items-center gap-2">
+        <label htmlFor="recovery-member-select" className="text-xs font-medium text-gray-500">
+          Tracking for
+        </label>
+        <select
+          id="recovery-member-select"
+          value={activeMemberId ?? "self"}
+          onChange={(e) => setActiveMemberId(e.target.value === "self" ? null : e.target.value)}
+          className="rounded-xl border border-gray-200 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 outline-none focus:border-blue-400"
+        >
+          <option value="self">Myself</option>
+          {members.map((m) => (
+            <option key={m.id} value={m.id}>
+              {m.name}
+              {m.relation ? ` · ${m.relation}` : ""}
+              {m.age ? ` · Age ${m.age}` : ""}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      {loadingInit && (
+        <div className="flex justify-center py-16">
+          <div className="h-6 w-6 animate-spin rounded-full border-4 border-blue-200 border-t-blue-600" />
+        </div>
+      )}
+
       {/* No conditions yet — show setup */}
-      {conditions.length === 0 && (
-        <ConditionSetup onCreated={handleConditionCreated} />
+      {!loadingInit && conditions.length === 0 && (
+        <ConditionSetup memberId={activeMemberId} onCreated={handleConditionCreated} />
       )}
 
       {/* Conditions exist — show selector + main content */}

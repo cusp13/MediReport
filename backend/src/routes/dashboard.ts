@@ -3,6 +3,7 @@ import { User } from "../models/User.js";
 import { ExerciseLog } from "../models/ExerciseLog.js";
 import { FoodLog } from "../models/FoodLog.js";
 import { SavedReport } from "../models/SavedReport.js";
+import { FamilyMember } from "../models/FamilyMember.js";
 import { guideForConditions } from "../data/exerciseGuide.js";
 import type { Report } from "../schemas/report.js";
 
@@ -31,15 +32,34 @@ export async function dashboardRoutes(app: FastifyInstance) {
     { preHandler: [app.authenticate] },
     async (request) => {
       const userId = request.user.userId;
+      const query = request.query as { memberId?: string };
+      const memberId = query.memberId && query.memberId !== "self" ? query.memberId : null;
 
-      const [user, exerciseLogs, foodLogs, latest] = await Promise.all([
+      const [user, member, exerciseLogs, foodLogs, latest] = await Promise.all([
         User.findById(userId),
-        ExerciseLog.find({ userId }).sort({ date: -1 }).limit(120),
-        FoodLog.find({ userId }).sort({ date: -1 }).limit(10),
-        SavedReport.findOne({ userId }).sort({ createdAt: -1 })
+        memberId ? FamilyMember.findOne({ _id: memberId, userId }) : null,
+        ExerciseLog.find({ userId, memberId }).sort({ date: -1 }).limit(120),
+        FoodLog.find({ userId, memberId }).sort({ date: -1 }).limit(10),
+        SavedReport.findOne({ userId, memberId }).sort({ createdAt: -1 })
       ]);
 
-      const profile = user?.healthProfile ?? null;
+      // Self uses the account's health profile; a family member uses their own
+      // medical fields captured in the Family modal.
+      const profile = member
+        ? {
+            conditions: member.preExistingConditions
+              ? member.preExistingConditions.split(",").map((c) => c.trim()).filter(Boolean)
+              : [],
+            age: member.age ?? undefined
+          }
+        : user?.healthProfile
+          ? {
+              conditions: user.healthProfile.conditions ?? [],
+              dietPreference: user.healthProfile.dietPreference ?? undefined,
+              activityLevel: user.healthProfile.activityLevel ?? undefined,
+              age: user.healthProfile.age ?? undefined
+            }
+          : null;
       const conditions = profile?.conditions ?? [];
 
       const doneDates = new Set(

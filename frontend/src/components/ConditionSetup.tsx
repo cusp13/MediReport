@@ -106,8 +106,10 @@ const CONDITION_GROUPS: { group: string; conditions: { value: string; label: str
 ];
 
 export function ConditionSetup({
+  memberId,
   onCreated
 }: Readonly<{
+  memberId: string | null;
   onCreated: (condition: ConditionLog) => void;
 }>) {
   const [name, setName] = useState("typhoid");
@@ -129,7 +131,8 @@ export function ConditionSetup({
       const { condition } = await addCondition({
         name: conditionName,
         stage: "acute",
-        notes: notes.trim() || undefined
+        notes: notes.trim() || undefined,
+        memberId
       });
       onCreated(condition);
     } catch (err) {

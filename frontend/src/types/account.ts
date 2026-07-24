@@ -7,6 +7,9 @@ export type FamilyMember = {
   name: string;
   relation: string | null;
   age: string | null;
+  preExistingConditions: string | null;
+  currentMedications: string | null;
+  medicalNotes: string | null;
 };
 
 export type SavedReport = {
@@ -60,6 +63,7 @@ export type GuideEntry = {
 
 export type ConditionLog = {
   id: string;
+  memberId: string | null;
   name: string;
   startDate: string;
   endDate: string | null;

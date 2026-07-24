@@ -156,9 +156,31 @@ export async function addFamily(input: {
   name: string;
   relation?: string;
   age?: string;
+  preExistingConditions?: string;
+  currentMedications?: string;
+  medicalNotes?: string;
 }): Promise<{ member: FamilyMember }> {
   const res = await fetch(`${API_BASE}/api/family`, {
     method: "POST",
+    headers: authHeaders(),
+    body: JSON.stringify(input)
+  });
+  return parse(res);
+}
+
+export async function updateFamily(
+  id: string,
+  input: {
+    name?: string;
+    relation?: string;
+    age?: string;
+    preExistingConditions?: string;
+    currentMedications?: string;
+    medicalNotes?: string;
+  }
+): Promise<{ member: FamilyMember }> {
+  const res = await fetch(`${API_BASE}/api/family/${id}`, {
+    method: "PUT",
     headers: authHeaders(),
     body: JSON.stringify(input)
   });
@@ -241,6 +263,7 @@ export async function putProfile(
 export async function addFoodLog(input: {
   items: string[];
   notes?: string;
+  memberId?: string | null;
 }): Promise<{ log: FoodLog }> {
   const res = await fetch(`${API_BASE}/api/logs/food`, {
     method: "POST",
@@ -254,6 +277,7 @@ export async function addExerciseLog(input: {
   type: string;
   durationMin?: number;
   steps?: number;
+  memberId?: string | null;
 }): Promise<{ log: ExerciseLog }> {
   const res = await fetch(`${API_BASE}/api/logs/exercise`, {
     method: "POST",
@@ -264,8 +288,9 @@ export async function addExerciseLog(input: {
 }
 
 // --- Dashboard ---
-export async function getDashboard(): Promise<DashboardData> {
-  const res = await fetch(`${API_BASE}/api/dashboard`, {
+export async function getDashboard(memberId?: string | null): Promise<DashboardData> {
+  const q = memberId ? `?memberId=${encodeURIComponent(memberId)}` : "";
+  const res = await fetch(`${API_BASE}/api/dashboard${q}`, {
     headers: authHeaders(false)
   });
   return parse(res);
@@ -273,8 +298,11 @@ export async function getDashboard(): Promise<DashboardData> {
 
 // --- Health Recovery Monitor ---
 
-export async function listConditions(): Promise<{ conditions: ConditionLog[] }> {
-  const res = await fetch(`${API_BASE}/api/conditions`, {
+export async function listConditions(
+  memberId?: string | null
+): Promise<{ conditions: ConditionLog[] }> {
+  const q = memberId ? `?memberId=${encodeURIComponent(memberId)}` : "";
+  const res = await fetch(`${API_BASE}/api/conditions${q}`, {
     headers: authHeaders(false)
   });
   return parse(res);
@@ -285,6 +313,7 @@ export async function addCondition(input: {
   startDate?: string;
   stage?: "acute" | "recovery" | "resolved";
   notes?: string;
+  memberId?: string | null;
 }): Promise<{ condition: ConditionLog }> {
   const res = await fetch(`${API_BASE}/api/conditions`, {
     method: "POST",
@@ -385,8 +414,11 @@ export interface TodayStats {
   exerciseMinutes: number;
 }
 
-export async function getDailyGoals(): Promise<{ goals: DailyGoals; today: TodayStats }> {
-  const res = await fetch(`${API_BASE}/api/daily-goals`, { headers: authHeaders(false) });
+export async function getDailyGoals(
+  memberId?: string | null
+): Promise<{ goals: DailyGoals; today: TodayStats }> {
+  const q = memberId ? `?memberId=${encodeURIComponent(memberId)}` : "";
+  const res = await fetch(`${API_BASE}/api/daily-goals${q}`, { headers: authHeaders(false) });
   return parse(res);
 }
 
@@ -394,6 +426,7 @@ export async function logDailyVitals(input: {
   waterLitres?: number;
   sleepHours?: number;
   mood?: number;
+  memberId?: string | null;
 }): Promise<void> {
   const res = await fetch(`${API_BASE}/api/daily-vitals`, {
     method: "POST",

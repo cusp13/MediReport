@@ -20,11 +20,13 @@ export async function dailyGoalsRoutes(app: FastifyInstance) {
 
       const userId = request.user.userId;
       const date = today();
+      const query = request.query as { memberId?: string };
+      const memberId = query.memberId && query.memberId !== "self" ? query.memberId : null;
 
       const [latest, exerciseLogs, vitals] = await Promise.all([
-        SavedReport.findOne({ userId, memberId: null }).sort({ createdAt: -1 }),
-        ExerciseLog.find({ userId, date }),
-        DailyVitalsLog.findOne({ userId, date })
+        SavedReport.findOne({ userId, memberId }).sort({ createdAt: -1 }),
+        ExerciseLog.find({ userId, memberId, date }),
+        DailyVitalsLog.findOne({ userId, memberId, date })
       ]);
 
       // Summarise today's exercise from existing logs
@@ -82,7 +84,8 @@ export async function dailyGoalsRoutes(app: FastifyInstance) {
           properties: {
             waterLitres: { type: "number", minimum: 0, maximum: 20 },
             sleepHours: { type: "number", minimum: 0, maximum: 24 },
-            mood: { type: "number", minimum: 1, maximum: 5 }
+            mood: { type: "number", minimum: 1, maximum: 5 },
+            memberId: { type: ["string", "null"] }
           },
           additionalProperties: false
         }
@@ -96,11 +99,13 @@ export async function dailyGoalsRoutes(app: FastifyInstance) {
         waterLitres?: number;
         sleepHours?: number;
         mood?: number;
+        memberId?: string | null;
       };
+      const { memberId, ...vitalsBody } = body;
 
       const vitals = await DailyVitalsLog.findOneAndUpdate(
-        { userId, date: today() },
-        { $set: { ...body } },
+        { userId, memberId: memberId ?? null, date: today() },
+        { $set: vitalsBody },
         { upsert: true, new: true }
       );
 

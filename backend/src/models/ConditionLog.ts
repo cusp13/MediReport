@@ -3,6 +3,8 @@ import mongoose, { Schema } from "mongoose";
 const conditionLogSchema = new Schema(
   {
     userId: { type: Schema.Types.ObjectId, ref: "User", required: true, index: true },
+    // null = the account owner themselves.
+    memberId: { type: Schema.Types.ObjectId, ref: "FamilyMember", default: null, index: true },
     name: { type: String, required: true, trim: true }, // e.g. "typhoid", "dengue"
     startDate: { type: String, required: true }, // YYYY-MM-DD
     endDate: { type: String, default: null },

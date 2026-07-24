@@ -19,7 +19,8 @@ export async function conditionRoutes(app: FastifyInstance) {
             name: { type: "string", minLength: 1, maxLength: 80 },
             startDate: { type: "string", maxLength: 10 },
             stage: { type: "string", enum: ["acute", "recovery", "resolved"] },
-            notes: { type: "string", maxLength: 500 }
+            notes: { type: "string", maxLength: 500 },
+            memberId: { type: ["string", "null"] }
           },
           required: ["name"],
           additionalProperties: false
@@ -33,9 +34,11 @@ export async function conditionRoutes(app: FastifyInstance) {
         startDate?: string;
         stage?: string;
         notes?: string;
+        memberId?: string | null;
       };
       const condition = await ConditionLog.create({
         userId: request.user.userId,
+        memberId: body.memberId ?? null,
         name: body.name.toLowerCase().trim(),
         startDate: body.startDate ?? today(),
         stage: body.stage ?? "acute",
@@ -44,6 +47,7 @@ export async function conditionRoutes(app: FastifyInstance) {
       return {
         condition: {
           id: condition.id as string,
+          memberId: condition.memberId ? String(condition.memberId) : null,
           name: condition.name,
           startDate: condition.startDate,
           endDate: condition.endDate ?? null,
@@ -59,10 +63,16 @@ export async function conditionRoutes(app: FastifyInstance) {
     { preHandler: [app.authenticate] },
     async (request, reply) => {
       if (!dbReady()) return reply.code(500).send({ error: "Internal server error." });
-      const conditions = await ConditionLog.find({ userId: request.user.userId }).sort({ createdAt: -1 });
+      const query = request.query as { memberId?: string };
+      const filter: Record<string, unknown> = {
+        userId: request.user.userId,
+        memberId: query.memberId && query.memberId !== "self" ? query.memberId : null
+      };
+      const conditions = await ConditionLog.find(filter).sort({ createdAt: -1 });
       return {
         conditions: conditions.map((c) => ({
           id: c.id as string,
+          memberId: c.memberId ? String(c.memberId) : null,
           name: c.name,
           startDate: c.startDate,
           endDate: c.endDate ?? null,
@@ -119,6 +129,7 @@ export async function conditionRoutes(app: FastifyInstance) {
       return {
         condition: {
           id: condition.id as string,
+          memberId: condition.memberId ? String(condition.memberId) : null,
           name: condition.name,
           startDate: condition.startDate,
           endDate: condition.endDate ?? null,

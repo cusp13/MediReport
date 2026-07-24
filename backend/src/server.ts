@@ -18,6 +18,7 @@ import { adviceRoutes } from "./routes/advice.js";
 import { dailyGoalsRoutes } from "./routes/dailyGoals.js";
 import { registerAuth } from "./auth/jwt.js";
 import { connectDb } from "./db.js";
+import { DailyVitalsLog } from "./models/DailyVitalsLog.js";
 import { ensureCollections } from "./ai/qdrantClient.js";
 import { seedMedicalKb } from "./ai/medicalKb.js";
 
@@ -39,6 +40,11 @@ try {
       ? "MongoDB connected — account features enabled"
       : "MONGODB_URI not set — running anonymous-only (no accounts)"
   );
+  if (connected) {
+    // The unique index gained memberId (family-member vitals support) — drop
+    // the old {userId,date} index left over from before that change.
+    await DailyVitalsLog.syncIndexes();
+  }
 } catch (err) {
   app.log.error({ err }, "MongoDB connection failed — accounts disabled");
 }

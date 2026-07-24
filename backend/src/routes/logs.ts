@@ -12,7 +12,9 @@ export async function logRoutes(app: FastifyInstance) {
     "/api/logs/food",
     { preHandler: [app.authenticate] },
     async (request) => {
-      const logs = await FoodLog.find({ userId: request.user.userId })
+      const query = request.query as { memberId?: string };
+      const memberId = query.memberId && query.memberId !== "self" ? query.memberId : null;
+      const logs = await FoodLog.find({ userId: request.user.userId, memberId })
         .sort({ date: -1, createdAt: -1 })
         .limit(30);
       return {
@@ -36,7 +38,8 @@ export async function logRoutes(app: FastifyInstance) {
           properties: {
             date: { type: "string", maxLength: 10 },
             items: { type: "array", items: { type: "string", maxLength: 120 } },
-            notes: { type: "string", maxLength: 300 }
+            notes: { type: "string", maxLength: 300 },
+            memberId: { type: ["string", "null"] }
           },
           required: ["items"],
           additionalProperties: false
@@ -48,9 +51,11 @@ export async function logRoutes(app: FastifyInstance) {
         date?: string;
         items: string[];
         notes?: string;
+        memberId?: string | null;
       };
       const log = await FoodLog.create({
         userId: request.user.userId,
+        memberId: body.memberId ?? null,
         date: body.date ?? today(),
         items: body.items,
         notes: body.notes
@@ -71,7 +76,9 @@ export async function logRoutes(app: FastifyInstance) {
     "/api/logs/exercise",
     { preHandler: [app.authenticate] },
     async (request) => {
-      const logs = await ExerciseLog.find({ userId: request.user.userId })
+      const query = request.query as { memberId?: string };
+      const memberId = query.memberId && query.memberId !== "self" ? query.memberId : null;
+      const logs = await ExerciseLog.find({ userId: request.user.userId, memberId })
         .sort({ date: -1, createdAt: -1 })
         .limit(30);
       return {
@@ -99,7 +106,8 @@ export async function logRoutes(app: FastifyInstance) {
             type: { type: "string", maxLength: 200 },
             durationMin: { type: "number" },
             steps: { type: "number" },
-            done: { type: "boolean" }
+            done: { type: "boolean" },
+            memberId: { type: ["string", "null"] }
           },
           required: ["type"],
           additionalProperties: false
@@ -113,9 +121,11 @@ export async function logRoutes(app: FastifyInstance) {
         durationMin?: number;
         steps?: number;
         done?: boolean;
+        memberId?: string | null;
       };
       const log = await ExerciseLog.create({
         userId: request.user.userId,
+        memberId: body.memberId ?? null,
         date: body.date ?? today(),
         type: body.type,
         durationMin: body.durationMin,
