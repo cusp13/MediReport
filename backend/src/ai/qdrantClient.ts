@@ -7,7 +7,11 @@ let client: QdrantClient | null = null;
 
 export function getQdrant(): QdrantClient {
   if (!client) {
-    client = new QdrantClient({ url: QDRANT_URL });
+    client = new QdrantClient({
+      url: QDRANT_URL,
+      apiKey: process.env.QDRANT_API_KEY,
+      checkCompatibility: false
+    });
   }
   return client;
 }

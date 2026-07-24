@@ -5,6 +5,7 @@ services:
     rootDir: backend
     buildCommand: npm install && npm run build
     startCommand: npm start
+    healthCheckPath: /health
     plan: free
     envVars:
       - key: OPENAI_API_KEY
@@ -19,3 +20,5 @@ services:
         sync: false          # Set to your Vercel URL after deploying frontend
       - key: QDRANT_URL
         sync: false          # Optional: set to Qdrant Cloud URL for RAG features
+      - key: QDRANT_API_KEY
+        sync: false          # Required if QDRANT_URL is a Qdrant Cloud instance
