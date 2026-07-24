@@ -16,6 +16,7 @@ import { conditionRoutes } from "./routes/conditions.js";
 import { healthLogRoutes } from "./routes/healthLogs.js";
 import { adviceRoutes } from "./routes/advice.js";
 import { dailyGoalsRoutes } from "./routes/dailyGoals.js";
+import { clinicRoutes } from "./routes/clinics.js";
 import { registerAuth } from "./auth/jwt.js";
 import { connectDb } from "./db.js";
 import { DailyVitalsLog } from "./models/DailyVitalsLog.js";
@@ -73,6 +74,7 @@ await app.register(conditionRoutes);
 await app.register(healthLogRoutes);
 await app.register(adviceRoutes);
 await app.register(dailyGoalsRoutes);
+await app.register(clinicRoutes);
 
 const port = Number(process.env.PORT ?? 4000);
 app.listen({ port, host: "0.0.0.0" }).catch((err) => {

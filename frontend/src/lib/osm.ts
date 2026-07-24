@@ -1,5 +1,8 @@
-// Real nearby clinics/hospitals from OpenStreetMap via the Overpass API.
-// Fully free, no API key, and CORS-enabled so the browser can call it directly.
+// Real nearby clinics/hospitals from OpenStreetMap via the Overpass API,
+// proxied through our own backend (see backend/src/routes/clinics.ts) —
+// the public Overpass instance's usage policy and inconsistent CORS
+// headers on error responses make it unreliable to call directly from
+// the browser.
 
 export type Clinic = {
   id: string;
@@ -21,18 +24,7 @@ export const DEFAULT_LOCATION = {
   label: "Bengaluru"
 };
 
-const OVERPASS_URL = "https://overpass-api.de/api/interpreter";
-
-function haversineKm(a: GeoPoint, b: GeoPoint): number {
-  const R = 6371;
-  const toRad = (x: number) => (x * Math.PI) / 180;
-  const dLat = toRad(b.lat - a.lat);
-  const dLng = toRad(b.lng - a.lng);
-  const h =
-    Math.sin(dLat / 2) ** 2 +
-    Math.cos(toRad(a.lat)) * Math.cos(toRad(b.lat)) * Math.sin(dLng / 2) ** 2;
-  return R * 2 * Math.asin(Math.sqrt(h));
-}
+const API_BASE = process.env.API_BASE_URL ?? "http://localhost:4000";
 
 // Browser geolocation, wrapped as a promise.
 export function getCurrentLocation(): Promise<GeoPoint> {
@@ -54,52 +46,17 @@ export async function fetchNearbyClinics(
   radiusMeters = 4000,
   limit = 12
 ): Promise<Clinic[]> {
-  const query = `[out:json][timeout:25];
-(
-  node["amenity"~"doctors|clinic|hospital"](around:${radiusMeters},${origin.lat},${origin.lng});
-  way["amenity"~"doctors|clinic|hospital"](around:${radiusMeters},${origin.lat},${origin.lng});
-);
-out center 60;`;
-
-  const res = await fetch(OVERPASS_URL, {
-    method: "POST",
-    body: `data=${encodeURIComponent(query)}`
+  const params = new URLSearchParams({
+    lat: String(origin.lat),
+    lng: String(origin.lng),
+    radiusMeters: String(radiusMeters),
+    limit: String(limit)
   });
+  const res = await fetch(`${API_BASE}/api/clinics/nearby?${params}`);
   if (!res.ok) throw new Error("Couldn't reach the map service.");
 
-  const data = (await res.json()) as {
-    elements: {
-      id: number;
-      type: string;
-      lat?: number;
-      lon?: number;
-      center?: { lat: number; lon: number };
-      tags?: Record<string, string>;
-    }[];
-  };
-
-  const clinics: Clinic[] = [];
-  for (const el of data.elements) {
-    const tags = el.tags;
-    if (!tags?.name) continue;
-    const lat = el.lat ?? el.center?.lat;
-    const lng = el.lon ?? el.center?.lon;
-    if (lat === undefined || lng === undefined) continue;
-
-    clinics.push({
-      id: `${el.type}-${el.id}`,
-      name: tags.name,
-      kind: tags.amenity ?? tags.healthcare ?? "clinic",
-      specialty: tags["healthcare:speciality"]?.replace(/_/g, " "),
-      phone: tags.phone ?? tags["contact:phone"],
-      lat,
-      lng,
-      distanceKm: haversineKm(origin, { lat, lng })
-    });
-  }
-
-  clinics.sort((a, b) => a.distanceKm - b.distanceKm);
-  return clinics.slice(0, limit);
+  const data = (await res.json()) as { clinics: Clinic[] };
+  return data.clinics;
 }
 
 export function directionsUrl(clinic: Clinic): string {
